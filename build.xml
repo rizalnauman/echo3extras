@@ -107,10 +107,11 @@
         </copy>
     </target>
     
-    <target name="dist.app" depends="clean,compile.app">
+    <target name="dist.app" depends="clean,compile.app,doc.app">
         <mkdir dir="${dir.dist.lib}"/>
         <jar jarfile="${dir.dist.lib}/${jarfile.extras.app}" basedir="${dir.build.server-java.app}"/>
         <jar jarfile="${dir.dist.lib}/${srcfile.extras.app}" basedir="${dir.src.server-java.app}"/>
+        <jar jarfile="${dir.dist.lib}/${docfile.extras.app}" basedir="${dir.javadoc.app.public}"/>
     </target>
     
     <target name="test.compile.app" depends="dist.app">
@@ -193,15 +194,16 @@
         </copy>
     </target>
     
-    <target name="dist.webcontainer" depends="clean,compile.webcontainer">
+    <target name="dist.webcontainer" depends="clean,compile.webcontainer,doc.webcontainer">
         <mkdir dir="${dir.dist.lib}"/>
         <jar jarfile="${dir.dist.lib}/${jarfile.extras.webcontainer}" basedir="${dir.build.server-java.webcontainer}"/>
         <jar jarfile="${dir.dist.lib}/${srcfile.extras.webcontainer}" basedir="${dir.src.server-java.webcontainer}"/>
+        <jar jarfile="${dir.dist.lib}/${docfile.extras.webcontainer}" basedir="${dir.javadoc.webcontainer.public}"/>
     </target>
         
     <target name="dist" depends="clean, dist.app, dist.webcontainer"/>
     
-    <target name="test" depends="test.app, jslint"/>
+    <target name="test" depends="test.app, dist.webcontainer, jslint"/>
     
     <target name="compile.testapp" depends="dist">
         <mkdir dir="${dir.build.server-java.testapp}/WEB-INF/classes"/>
@@ -414,8 +416,24 @@
         </artifact:install>
     </target>
 
-    <target name="mvn.snapshot" depends="dist, doc.jars, -mvn.generate.pom, -mvn.inittasks"
+    <!-- Deploy snapshot to Sonatype Maven repository. Called by Travis-CI -->
+    <target name="travis.mvn.snapshot">
+        <property environment="env"/>
+        <condition property="secure_env">
+            <not>
+                <equals arg1="${env.TRAVIS_SECURE_ENV_VARS}" arg2="false"/>
+            </not>
+        </condition>
+        <fail unless="secure_env" message="No secure environment variables available, skipping snapshot deployment" />
+        <antcall target="-mvn.snapshot" />
+    </target>
+
+    <target name="mvn.snapshot" depends="dist, doc.jars, -mvn.snapshot"
             description="Deploy snapshot version to configured Maven snapshot repository">
+    </target>
+
+    <!-- Synthetic Implementation target for code reuse -->
+    <target name="-mvn.snapshot" depends="-mvn.generate.pom, -mvn.inittasks">
         <!-- The artifact:deploy tasks do not repesct settings.xml for proxy/auth, so we use the mvn task -->
         <!-- Deploy Echo API module. -->
         <artifact:mvn>
